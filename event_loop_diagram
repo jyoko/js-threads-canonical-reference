@@ -1,0 +1,80 @@
++=========================================================================================+
+|                                  NodeJS Process                                         |
+|=========================================================================================|
+|                                        ||                                               |
+|  +--------------------------+          ||                                               |
+|  |    Resources:  Memory    |<========>|| <------------ This downward flow, beginning   |
+|  |--------------------------|          \/               when the process is executed,   |
+|  |                          |   +--------------+        is the thread of execution.     |
+|  | +----------------------+ |   |  Event Loop  |                                        |
+|  | | Shared Address Space | |   +--------------+                                        |
+|  | +----------------------+ |          ||                                               |
+|  |                          |         //\\  <---------- A split of the execution        |
+|  | +----------------------+ |        //  \\             inside of a process is          |
+|  | | Local/Auto Variables | |       //    \\            commonly called a "thread"      |
+|  | +----------------------+ |      ||     ||                                            |
+|  |                          |      \/     \/                                            |
+|  | +----------------------+ |  +------+ +------+                                        |
+|  | |   Global Variables   | |  | STEP | | STEP | <----- What these steps really do is   |
+|  | +----------------------+ |  +------+ +------+        unimportant, it can be          |
+|  |                          |     ||      ||            anything                        |
+|  +--------------------------+     \/      \/                                            |
+|                                +------+ +------+                                        |
+|                                | STEP | | STEP |                                        |
+|                                +------+ +------+                                        |
+|                                   ||      ||                                            |
+|                                   \\      //                                            |
+|                                    \\    //  <--------- No matter whether engine        |
+|                                     \\  //              internals or application        |
+|                                      \\//               code, it is eventually          |
+|                                       ||                seen back at this top           |
+|                                       \/                level process                   |
+|                             +---------------------+                                     |
+|                             |  Repeat Event Loop  |                                     |
+|                             +---------------------+                                     |
+|                                       ||                                                |
+|                                       \/                                                |
++=========================================================================================+
+
+
+
++=========================================================================================+
+|                                    Glossary                                             |
+|=========================================================================================|
+|                                                                                         |
+| NodeJS:               A specific piece of software that acts as a Javascript            |
+|                       runtime environment or engine.                                    |
+|                                                                                         |
+| NodeJS Process:       A compiled node executable binary file being executed             |
+|                       by an operating system. Specifically in these examples,           |
+|                       NodeJS v12.16.1 on a recent version of Ubuntu.                    |
+|                                                                                         |
+| Process:              A combined set of resources and a current execution               |
+|                       context.                                                          |
+|                                                                                         |
+| Execution Context:    The state of an executing action or event at a moment             |
+|                       in time, like variables and scope.                                |
+|                                                                                         |
+| Thread:               A current execution context.                                      |
+|                                                                                         |
+| Resource:             A thing to be used like memory or thread of execution.            |
+|                                                                                         |
+| Memory:               Blobs of data on a storage medium.                                |
+|                                                                                         |
+| Shared Address Space: An area of memory accessible to all threads within the            |
+|                       process.                                                          |
+|                                                                                         |
+| Local/Auto Variables: A variable in a specific scope or execution context,              |
+|                       here meaning thread and represented by a "block" of               |
+|                       code when written as Javascript. Auto is short for                |
+|                       "automatic" and means resource allocation for the                 |
+|                       variable is handled automatically by its execution                |
+|                       context.                                                          |
+|                                                                                         |
+| Global Variables:     A variable visible to the entire program or process.              |
+|                                                                                         |
+| Step:                 Any arbitrary action performed by the code.                       |
+|                                                                                         |
+| Event Loop:           A logical construction for a repeated series of steps.            |
+|                                                                                         |
++=========================================================================================+
