@@ -1,6 +1,6 @@
 # Javascript is Multithreaded
 
-## And Corrollaries Like "Javascript is not single threaded"
+## And Corollaries Like "Javascript is not single threaded"
 
 ## STATUS: DRAFT - INCOMPLETE
 
