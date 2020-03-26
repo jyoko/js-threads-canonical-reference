@@ -88,40 +88,49 @@ Below is a text-based diagram (with own supporting glossary) that attempts to sh
 |                                  NodeJS Process                                         |
 |=========================================================================================|
 |                                        ||                                               |
-|  +--------------------------+          ||                                               |
-|  |    Resources:  Memory    |<========>|| <------------ This downward flow, beginning   |
-|  |--------------------------|          \/               when the process is executed,   |
-|  |                          |   +--------------+        is the thread of execution.     |
+|  +--------------------------+          ||  <------------ This downward flow, beginning  |
+|  |    Resources:  Memory    |<========>||                when the process is executed,  |
+|  |--------------------------|          ||                is the thread of execution.    |
+|  |                          |         //\\                                              |
+|  | +----------------------+ |      +---++---+                                           |
+|  | | Shared Address Space | |      | A || B | <--------- Options inside the same flow,  |
+|  | +----------------------+ |      +---++---+            like "if" statements, are      |
+|  |                          |        \\  //              known as branches.             |
+|  | +----------------------+ |         \\//                                              |
+|  | | Local/Auto Variables | |          ||  <------------ Branches change the order of   |
+|  | +----------------------+ |          ||                operations but happen inside   |
+|  |                          |          ||                the same thread.               |
+|  | +----------------------+ |          \/                                               |
+|  | |   Global Variables   | |   +--------------+                                        |
 |  | +----------------------+ |   |  Event Loop  |                                        |
-|  | | Shared Address Space | |   +--------------+                                        |
-|  | +----------------------+ |          ||                                               |
-|  |                          |         //\\  <---------- A split of the execution        |
-|  | +----------------------+ |        //  \\             inside of a process is          |
-|  | | Local/Auto Variables | |       //    \\            commonly called a "thread"      |
-|  | +----------------------+ |      ||     ||                                            |
-|  |                          |      \/     \/                                            |
-|  | +----------------------+ |  +------+ +------+                                        |
-|  | |   Global Variables   | |  | STEP | | STEP | <----- What these steps really do is   |
-|  | +----------------------+ |  +------+ +------+        unimportant, it can be          |
-|  |                          |     ||      ||            anything                        |
-|  +--------------------------+     \/      \/                                            |
-|                                +------+ +------+                                        |
-|                                | STEP | | STEP |                                        |
-|                                +------+ +------+                                        |
-|                                   ||      ||                                            |
-|                                   \\      //                                            |
-|                                    \\    //  <--------- No matter whether engine        |
-|                                     \\  //              internals or application        |
-|                                      \\//               code, it is eventually          |
+|  |                          |   +--------------+                                        |
+|  +--------------------------+          ||                                               |
+|                                       //\\  <---------- A split of the execution        |
+|                 //<==================//  \\             inside of a process is          |
+|                 ||       //         //    \\            commonly called a "thread."     |
+|                 ||       ||        ||     ||                                            |
+|                 \/       \/        \/     \/                                            |
+|              +------+ +------+ +------+ +------+                                        |
+|              | STEP | | STEP | | STEP | | STEP | <----- What these steps really do is   |
+|              +------+ +------+ +------+ +------+        unimportant, it can be          |
+|                 ||       ||       ||      ||            anything. Coordinating many     |
+|                 \/       \/       \/      \/            threads can be complex,         |
+|              +------+ +------+ +------+ +------+        but also simple.                |
+|              | STEP | | STEP | | STEP | | STEP |                                        |
+|              +------+ +------+ +------+ +------+                                        |
+|                 ||       ||       ||      ||                                            |
+|                 \\       \\       \\      //                                            |
+|                  \\       \\       \\    //  <--------- No matter whether engine        |
+|                   \\       \\       \\  //              internals or application        |
+|                    =================>\\//               code, it is eventually          |
 |                                       ||                seen back at this top           |
-|                                       \/                level process                   |
+|                                       \/                level process.                  |
 |                             +---------------------+                                     |
 |                             |  Repeat Event Loop  |                                     |
 |                             +---------------------+                                     |
 |                                       ||                                                |
 |                                       \/                                                |
 +=========================================================================================+
-
 
 
 +=========================================================================================+
@@ -162,6 +171,11 @@ Below is a text-based diagram (with own supporting glossary) that attempts to sh
 | Step:                 Any arbitrary action performed by the code.                       |
 |                                                                                         |
 | Event Loop:           A logical construction for a repeated series of steps.            |
+|                                                                                         |
+| "A || B":             Quoted literally from diagram, this is also valid Javascript      |
+|                       using the Logical OR operator "||" against variables "A"          |
+|                       and "B". This part of the diagram in code is:                     |
+|                         if (A || B) {                                                   |
 |                                                                                         |
 +=========================================================================================+
 ```
