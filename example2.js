@@ -36,9 +36,8 @@ const { Worker, isMainThread, workerData, parentPort, threadId } = require('work
  * default -- we need its value first.
  */
 const { arrLen, threadCount } = workerData || {
-  arrLen: parseInt(process.argv[2]) || 20, // add input too
-  threadCount: parseInt(process.argv[3])>MAX_THREAD_DEMO_LIMIT && MAX_THREAD_DEMO_LIMIT ||
-               parseInt(process.argv[3]) || 2, // more input
+  arrLen:      parseInt(process.argv[2]) || 20,
+  threadCount: parseInt(process.argv[3]) || 2,
 };
 const { buf1, buf2, useAtomics } = workerData || {
   buf1: new SharedArrayBuffer(arrLen*SharedArray.BYTES_PER_ELEMENT),
@@ -47,9 +46,20 @@ const { buf1, buf2, useAtomics } = workerData || {
 
 // this block is not the main execution context
 if (!isMainThread) {
+  /* Logging to the console doesn't work directly in this thread setup as-is,
+   * so far as the author knows this is because of how console.log works with
+   * the stdout stream. This is a straightforward hack that sends the log
+   * text to the main thread to log it. The direct console.log below the log
+   * will be shown _inconsistently_ when this is true.
+   *
+   * Changing parentPort.postMessage to console.log will also be somewhat
+   * unpredictable.
+   */
   const log = (...args)=>parentPort.postMessage({log:`[${(new Date()).toISOString()}] (${process.pid}-${threadId}) ${args.join(' ')}`});
+  log('new thread executing');
+  console.log('this is why the postMessage hack');
+
   const start = Date.now();
-  log('am I a thread??');
   const arr1 = new SharedArray(buf1);
   const arr2 = new SharedArray(buf2);
 
@@ -68,14 +78,20 @@ if (!isMainThread) {
    * screen, sometimes modifying the shared values referred to here as the
    * variables "arr1" and "arr2"
    */
-  while (i++ < Number.MAX_SAFE_INTEGER/10) {
-    if (i%2000 === 0) showProgress();
-    if (i%3000 === 0) {
+  const SHRINK_LOOP_SIZE_BY      = 10000000;
+  const SHOW_PROGRESS_EVERY      = 200000000000;
+  const FIDDLE_WITH_MEMORY_EVERY = 300000;
+  while (i++ < Number.MAX_SAFE_INTEGER/SHRINK_LOOP_SIZE_BY) {
+    if (i%SHOW_PROGRESS_EVERY === 0) showProgress();
+    if (i%FIDDLE_WITH_MEMORY_EVERY === 0) {
       randIx = Math.floor(Math.random()*arrLen);
       rand = Math.random(); // for consistency below
       const ixModifier = (rand=>randIx=>Math.ceil(randIx*rand*10))(rand);
       [arr,name] = randIx > Math.floor(arrLen/2) ? [arr1,'arr1'] : [arr2,'arr2'];
-      log(`${useAtomics?'Atomics.':''}store ${name}[${randIx}]="${i+ixModifier(randIx)}"`);
+      /* Uncommenting the below log may be helpful but noisy
+       */
+      //log(`${useAtomics?'Atomics.':''}store ${name}[${randIx}]="${i+ixModifier(randIx)}"`);
+
       /* Running showProgress more often in any thread _may_ expose a data race
        * by using the different syntaxes below. I have not confirmed this
        * happens in reality on any particular machine, but my understanding of
@@ -93,14 +109,14 @@ if (!isMainThread) {
     }
   };
   log(`arr1: ${arr1}\narr2: ${arr2}`);
-  log(`new thread finished in ${Date.now()-start}ms`);
+  log(`new ${useAtomics?'Atomic':'direct-access'} thread finished in ${Date.now()-start}ms`);
 
 }
 
 // this block is the main execution context
 if (isMainThread) {
   const log = (...args)=>console.log(`[${(new Date()).toISOString()}] (${process.pid}-${threadId}) ${args.join(' ')}`);
-  log('am I a thread??');
+  log('main thread/process started');
 
   /* Initialize the shared data when the process starts, using the convenience
    * function at the top of the file.
@@ -113,8 +129,9 @@ if (isMainThread) {
    * to run at some point of time in the future. This allows a type of user
    * space thread via ad-hoc time slicing. In this example, it causes 
    */
+  const ANNOYING_LOG_REPEAT_INTERVAL = 3000; // about once every 3 seconds
   let progressDisplay = setTimeout(function showProgress() {
-    progressDisplay = setTimeout(showProgress, 100);
+    progressDisplay = setTimeout(showProgress, ANNOYING_LOG_REPEAT_INTERVAL);
     log(`arr1:${arr1.join(',')} | arr2:${arr2.join(',')}`);
   }, 0);
     
@@ -151,63 +168,76 @@ if (isMainThread) {
 }
 
 /*
-jrandm@example:~$ node -v
+jrandm@example:~/js-threads-canonical-reference$ uname -a
+Linux example 4.4.0-176-generic #206-Ubuntu SMP Fri Feb 28 05:02:04 UTC 2020 x86_64 x86_64 x86_64 GNU/Linux
+
+jrandm@example:~/js-threads-canonical-reference$ node -v
 v12.16.1
-jrandm@example:~$ node demo.js 5
-[2020-03-23T13:20:34.082Z] (8328-0) am I a thread??
-[2020-03-23T13:20:34.087Z] (8328-0) starting thread 1
-[2020-03-23T13:20:34.089Z] (8328-0) starting thread 2
-[2020-03-23T13:20:34.090Z] (8328-0) arr1:1,2,3,4,5 | arr2:1,2,3,4,5
-[2020-03-23T13:20:34.115Z] (8328-1) am I a thread??
-[2020-03-23T13:20:34.116Z] (8328-2) am I a thread??
-[2020-03-23T13:20:34.179Z] (8328-1) arr1:1,2,3,4,5 | arr2:1,2,3,4,5
-[2020-03-23T13:20:34.181Z] (8328-2) arr1:1,2,3,4,5 | arr2:1,2,3,4,5
-[2020-03-23T13:20:34.190Z] (8328-0) arr1:1,2,3,4,5 | arr2:1,2,3,4,5
-[2020-03-23T13:20:34.222Z] (8328-1) store arr2[1]="30000009"
-[2020-03-23T13:20:34.224Z] (8328-2) store arr1[3]="30000016"
-[2020-03-23T13:20:34.273Z] (8328-1) arr1:1,2,3,30000016,5 | arr2:1,30000009,3,4,5
-[2020-03-23T13:20:34.275Z] (8328-2) arr1:1,2,3,30000016,5 | arr2:1,30000009,3,4,5
-[2020-03-23T13:20:34.290Z] (8328-0) arr1:1,2,3,30000016,5 | arr2:1,30000009,3,4,5
-[2020-03-23T13:20:34.366Z] (8328-1) arr1:1,2,3,30000016,5 | arr2:1,30000009,3,4,5
-[2020-03-23T13:20:34.366Z] (8328-1) store arr2[2]="60000019"
-[2020-03-23T13:20:34.370Z] (8328-2) arr1:1,2,3,30000016,5 | arr2:1,30000009,60000019,4,5
-[2020-03-23T13:20:34.370Z] (8328-2) store arr1[3]="60000020"
-[2020-03-23T13:20:34.390Z] (8328-0) arr1:1,2,3,60000020,5 | arr2:1,30000009,60000019,4,5
-[2020-03-23T13:20:34.461Z] (8328-1) arr1:1,2,3,60000020,5 | arr2:1,30000009,60000019,4,5
-[2020-03-23T13:20:34.465Z] (8328-2) arr1:1,2,3,60000020,5 | arr2:1,30000009,60000019,4,5
-[2020-03-23T13:20:34.491Z] (8328-0) arr1:1,2,3,60000020,5 | arr2:1,30000009,60000019,4,5
-[2020-03-23T13:20:34.506Z] (8328-1) store arr2[2]="90000019"
-[2020-03-23T13:20:34.506Z] (8328-1) arr1: 1,2,3,60000020,5
-arr2: 1,30000009,90000019,4,5
-[2020-03-23T13:20:34.506Z] (8328-1) new thread finished in 391ms
-[2020-03-23T13:20:34.508Z] (8328-0) thread finished; arr1:1,2,3,60000020,5 | arr2:1,30000009,90000019,4,5
-[2020-03-23T13:20:34.511Z] (8328-2) store arr1[3]="90000014"
-[2020-03-23T13:20:34.512Z] (8328-2) arr1: 1,2,3,90000014,5
-arr2: 1,30000009,90000019,4,5
-[2020-03-23T13:20:34.512Z] (8328-2) new thread finished in 396ms
-[2020-03-23T13:20:34.513Z] (8328-0) thread finished; arr1:1,2,3,90000014,5 | arr2:1,30000009,90000019,4,5
-[2020-03-23T13:20:35.123Z] (8328-4) am I a thread??
-[2020-03-23T13:20:35.123Z] (8328-3) am I a thread??
-[2020-03-23T13:20:35.189Z] (8328-3) arr1:1,2,3,90000014,5 | arr2:2,60000018,180000038,8,10
-[2020-03-23T13:20:35.190Z] (8328-4) arr1:1,2,3,90000014,5 | arr2:2,60000018,180000038,8,10
-[2020-03-23T13:20:35.233Z] (8328-3) Atomics.store arr1[4]="30000026"
-[2020-03-23T13:20:35.234Z] (8328-4) Atomics.store arr1[4]="30000004"
-[2020-03-23T13:20:35.279Z] (8328-3) arr1:1,2,3,90000014,30000004 | arr2:2,60000018,180000038,8,10
-[2020-03-23T13:20:35.279Z] (8328-4) arr1:1,2,3,90000014,30000004 | arr2:2,60000018,180000038,8,10
-[2020-03-23T13:20:35.354Z] (8328-3) arr1:1,2,3,90000014,30000004 | arr2:2,60000018,180000038,8,10
-[2020-03-23T13:20:35.354Z] (8328-3) Atomics.store arr2[2]="60000012"
-[2020-03-23T13:20:35.354Z] (8328-4) arr1:1,2,3,90000014,30000004 | arr2:2,60000018,180000038,8,10
-[2020-03-23T13:20:35.354Z] (8328-4) Atomics.store arr2[0]="60000000"
-[2020-03-23T13:20:35.440Z] (8328-3) arr1:1,2,3,90000014,30000004 | arr2:60000000,60000018,60000012,8,10
-[2020-03-23T13:20:35.440Z] (8328-4) arr1:1,2,3,90000014,30000004 | arr2:60000000,60000018,60000012,8,10
-[2020-03-23T13:20:35.480Z] (8328-3) Atomics.store arr2[2]="90000009"
-[2020-03-23T13:20:35.480Z] (8328-3) arr1: 1,2,3,90000014,30000004
-arr2: 90000000,60000018,90000009,8,10
-[2020-03-23T13:20:35.480Z] (8328-3) new thread finished in 357ms
-[2020-03-23T13:20:35.480Z] (8328-4) Atomics.store arr2[0]="90000000"
-[2020-03-23T13:20:35.481Z] (8328-4) arr1: 1,2,3,90000014,30000004
-arr2: 90000000,60000018,90000009,8,10
-[2020-03-23T13:20:35.481Z] (8328-4) new thread finished in 359ms
-[2020-03-23T13:20:35.482Z] (8328-0) thread finished; arr1:1,2,3,90000014,30000004 | arr2:90000000,60000018,90000009,8,10
-[2020-03-23T13:20:35.483Z] (8328-0) thread finished; arr1:1,2,3,90000014,30000004 | arr2:90000000,60000018,90000009,8,10
+
+jrandm@example:~/js-thread-canonical-reference$ time node example2.js 5 4 # time is used to get execution time for the node process, see man time
+[2020-03-26T11:03:16.179Z] (12362-0) main thread/process started
+[2020-03-26T11:03:16.183Z] (12362-0) starting thread 1
+[2020-03-26T11:03:16.185Z] (12362-0) starting thread 2
+[2020-03-26T11:03:16.186Z] (12362-0) starting thread 3
+[2020-03-26T11:03:16.186Z] (12362-0) starting thread 4
+[2020-03-26T11:03:16.188Z] (12362-0) arr1:1,2,3,4,5 | arr2:1,2,3,4,5
+[2020-03-26T11:03:16.225Z] (12362-3) new thread executing
+this is why the postMessage hack
+[2020-03-26T11:03:16.227Z] (12362-4) new thread executing
+this is why the postMessage hack
+[2020-03-26T11:03:16.229Z] (12362-1) new thread executing
+[2020-03-26T11:03:16.230Z] (12362-2) new thread executing
+this is why the postMessage hack
+this is why the postMessage hack
+this is why the postMessage hack
+[2020-03-26T11:03:17.260Z] (12362-8) new thread executing
+this is why the postMessage hack
+[2020-03-26T11:03:17.245Z] (12362-5) new thread executing
+this is why the postMessage hack
+[2020-03-26T11:03:17.245Z] (12362-6) new thread executing
+this is why the postMessage hack
+[2020-03-26T11:03:17.245Z] (12362-7) new thread executing
+[2020-03-26T11:03:19.190Z] (12362-0) arr1:1,2,3,70800013,66000007 | arr2:72000000,124800009,71100004,8,10
+[2020-03-26T11:03:22.194Z] (12362-0) arr1:1,2,3,230700004,232500004 | arr2:179700000,227400002,187500009,8,10
+[2020-03-26T11:03:25.195Z] (12362-0) arr1:1,2,3,335100026,334800012 | arr2:347400000,344100003,302400017,8,10
+[2020-03-26T11:03:28.198Z] (12362-0) arr1:1,2,3,388200015,462300012 | arr2:400500000,414300007,388500015,8,10
+[2020-03-26T11:03:31.202Z] (12362-0) arr1:1,2,3,560100018,576600007 | arr2:523500000,507000003,570000003,8,10
+[2020-03-26T11:03:34.203Z] (12362-0) arr1:1,2,3,631800017,618300029 | arr2:687300000,682200008,632100002,8,10
+[2020-03-26T11:03:37.206Z] (12362-0) arr1:1,2,3,724500025,798300019 | arr2:729300000,774600002,794100004,8,10
+[2020-03-26T11:03:39.895Z] (12362-2) arr1: 1,2,3,831300008,824100002
+arr2: 831900000,874800006,896100007,8,10
+[2020-03-26T11:03:39.911Z] (12362-2) new direct-access thread finished in 23680ms
+[2020-03-26T11:03:39.915Z] (12362-0) thread finished; arr1:1,2,3,897000020,875400030 | arr2:824400000,835200005,824700006,8,10
+[2020-03-26T11:03:40.013Z] (12362-3) arr1: 1,2,3,829200002,840300021
+arr2: 879000000,861600003,829500016,8,10
+[2020-03-26T11:03:40.013Z] (12362-3) new direct-access thread finished in 23787ms
+[2020-03-26T11:03:40.022Z] (12362-0) thread finished; arr1:1,2,3,836700010,836400022 | arr2:879000000,879600009,829500016,8,10
+[2020-03-26T11:03:40.516Z] (12362-4) arr1: 1,2,3,850500015,850200031
+arr2: 871800000,900300003,859500011,8,10
+[2020-03-26T11:03:40.516Z] (12362-4) new direct-access thread finished in 24288ms
+[2020-03-26T11:03:40.519Z] (12362-0) thread finished; arr1:1,2,3,850500015,872100024 | arr2:871800000,900300003,859500011,8,10
+[2020-03-26T11:03:40.957Z] (12362-7) arr1: 1,2,3,900300026,900000008
+arr2: 900600000,900300001,868500015,8,10
+[2020-03-26T11:03:40.957Z] (12362-7) new Atomic thread finished in 23712ms
+[2020-03-26T11:03:40.960Z] (12362-0) thread finished; arr1:1,2,3,877800021,900000008 | arr2:900600000,900300001,868800016,8,10
+[2020-03-26T11:03:40.964Z] (12362-1) arr1: 1,2,3,869400016,900000008
+arr2: 878100000,869100007,900600002,8,10
+[2020-03-26T11:03:40.964Z] (12362-1) new direct-access thread finished in 24734ms
+[2020-03-26T11:03:40.967Z] (12362-0) thread finished; arr1:1,2,3,869400016,900000008 | arr2:878100000,869400009,900600002,8,10
+[2020-03-26T11:03:41.297Z] (12362-5) arr1: 1,2,3,892800010,892500031
+arr2: 892500000,891900009,893100014,8,10
+[2020-03-26T11:03:41.297Z] (12362-5) new Atomic thread finished in 24052ms
+[2020-03-26T11:03:41.301Z] (12362-0) thread finished; arr1:1,2,3,892800010,892500031 | arr2:893100000,891900009,893100014,8,10
+[2020-03-26T11:03:41.406Z] (12362-8) arr1: 1,2,3,899400016,898800033
+arr2: 900300000,899700003,900600014,8,10
+[2020-03-26T11:03:41.406Z] (12362-8) new Atomic thread finished in 24146ms
+[2020-03-26T11:03:41.408Z] (12362-0) thread finished; arr1:1,2,3,899400016,898800033 | arr2:900300000,900600006,900600014,8,10
+[2020-03-26T11:03:41.409Z] (12362-6) arr1: 1,2,3,899400016,898800033
+arr2: 900300000,900600006,900600014,8,10
+[2020-03-26T11:03:41.409Z] (12362-6) new Atomic thread finished in 24163ms
+[2020-03-26T11:03:41.411Z] (12362-0) thread finished; arr1:1,2,3,899400016,898800033 | arr2:900300000,900600006,900600014,8,10
+
+real    0m25.289s
+user    3m5.052s
+sys     0m0.124s
 */
