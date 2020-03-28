@@ -10,7 +10,7 @@ The purpose of this document is to attempt to give a canonical reference on the 
 
 This position has been thoroughly researched, debated, and uses many citations to primary sources or source code and output in specific environments to assert this position. Javascript does not care who uses it or how we talk about it; it is either an abstract thing, a document called a specification, source code for a real machine, or the act of executing source code in a real machine. If we cannot agree on what we're talking about then we cannot focus on whatever purpose there is to what our code is meant to do!
 
-Older documents, including versions _of this document_, may have used words to mean different things at different times. This is a not a criticism of existing works.
+Older documents, including versions _of this document_, may have used words to mean different things at different times. This is not a criticism of existing works.
 
 Any and all reproductions of this work are free for anyone to use without restriction. The intent is for people to learn and to make communication easier; myself and the others that helped me create this document appreciate credit but it is not necessary unless otherwise specifically stated.
 
