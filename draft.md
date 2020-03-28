@@ -51,7 +51,7 @@ The only concession this document makes is:
 
 1. If you choose to define the words differently then the assertion of this document can be made untrue.
 
-The position of this document is that is always true of any statement and is pointless semantic debate.
+The position of this document is that is always true of any statement and is pointless semantic debate; as this document cannot defend itself any readers or usage will simply have to trust the document says what it means.
 
 ### Explanation of a Javascript Runtime
 
