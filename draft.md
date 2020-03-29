@@ -4,6 +4,12 @@
 
 ## STATUS: DRAFT - INCOMPLETE
 
+### Credits
+
+This author wishes to personally thank everyone who ever heard a question in good faith and tried to help someone else understand. This document, which does not use the term again, would like to stipulate those people as "hackers."
+
+Thus far, no other party has made any specific request for any other specific credit to be added. TODO: in this draft or any future additions by at least one author
+
 ### Overview
 
 The purpose of this document is to attempt to give a canonical reference on the topic of threads in Javascript.
