@@ -181,7 +181,8 @@ Below is a text-based diagram (with own supporting glossary) that attempts to sh
 | "A || B":             Quoted literally from diagram, this is also valid Javascript      |
 |                       using the Logical OR operator "||" against variables "A"          |
 |                       and "B". This part of the diagram in code is:                     |
-|                         if (A || B) {                                                   |
+|                         if (condition) { /* branch A */ }                               |
+|                         else           { /* branch B */ }                               |
 |                                                                                         |
 +=========================================================================================+
 ```
